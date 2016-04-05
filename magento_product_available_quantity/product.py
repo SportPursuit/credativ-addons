@@ -31,7 +31,7 @@ class product_template(orm.Model):
         if 'state' in vals:
             prod_obj = self.pool.get('product.product')
             mag_prod_obj = self.pool.get('magento.product.product')
-            isinstance(ids, list) and ids or [ids]
+            ids = list(ids)
             prod_ids = prod_obj.search(cr, uid, [('product_tmpl_id', 'in', ids)], context=context)
             prod_bindings = prod_obj.read(cr, uid, prod_ids, ['magento_bind_ids'], context=context)
             mag_prod_ids = reduce(list.__add__, [p['magento_bind_ids'] for p in prod_bindings], [])

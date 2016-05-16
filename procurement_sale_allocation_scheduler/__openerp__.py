@@ -20,8 +20,8 @@
 ##############################################################################
 {
     'name' : 'Procurement Sale Allocation Scheduler',
-    'version' : '1.0.0',
-    'author' : 'credativ',
+'    'version' : 7.20160516.0,
+'    'author' : 'credativ',
     'website' : 'http://credativ.co.uk',
     'depends' : [
         'procurement',

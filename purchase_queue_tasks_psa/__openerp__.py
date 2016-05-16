@@ -21,8 +21,8 @@
 
 {
         'name' : 'Purchase Queue Tasks - PSA Integration',
-        'version' : '7.0.1.0',
-        'author' : 'credativ Ltd',
+'        'version' : 7.20160516.0,
+'        'author' : 'credativ Ltd',
         'description' : '''
 The procurement sale allocation scheduler module will allocate
 procurements to purchase automatically even after the confirmation

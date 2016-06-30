@@ -21,7 +21,7 @@
 
 {
     'name' : 'Stock Overview Report',
-    'version' : '7.20160630.0',
+    'version' : '7.20160630.1',
     'author' : 'credativ',
     'website' : 'http://credativ.co.uk',
     'depends' : [

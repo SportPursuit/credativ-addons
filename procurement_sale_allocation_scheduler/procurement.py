@@ -21,7 +21,7 @@
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from psycopg2.extensions import TransactionRollbackError
+from psycopg2 import OperationalError
 import traceback
 
 from openerp import netsvc
@@ -82,7 +82,6 @@ class ProcurementOrder(osv.Model):
                 ids = procurement_obj.search(cr, uid, [('date_planned', '<', maxdate), max_sched_condition, ('note', 'not like', '%_mto_to_mts_done_%'), '|',
                                                            '&', ('state', '=', 'confirmed'), ('procure_method', '=', 'make_to_order'),
                                                            '&', '&', ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock'), ('note', 'like', '%_mto_to_mts_fail_%')], limit=50, order='priority, date_planned', context=context)
-                _logger.info('Processing procurements %s' % ids)
                 for proc in procurement_obj.browse(cr, uid, ids):
                     with AttemptProcurement(cr, proc):
                         ok = True
@@ -99,7 +98,6 @@ class ProcurementOrder(osv.Model):
                             proc.refresh()
                             # Moved to exception since another thread might be reserving it instead, rollback and try again later
                             if proc.state == 'exception' and '_mto_to_mts_fail_' not in proc.note:
-                                _logger.info('Procurement %s entered exception state.' % proc.id)
                                 cr.execute("""UPDATE procurement_order set note = TRIM(both E'\n' FROM COALESCE(note, '') || %s) WHERE id = %s""", ('\n\n_mto_to_mts_fail_',proc.id))
                         else:
                             # No stock is available, continue
@@ -221,29 +219,19 @@ class ProcurementOrder(osv.Model):
                     ids = procurement_obj.search(cr, uid, [max_sched_condition, ('product_id', '=', product_id), ('state', '=', 'running'), ('purchase_id', '!=', False),
                                                            ('procure_method', '=', 'make_to_order'), ('date_planned', '<=', maxdate)], limit=50, order='priority, date_planned', context=context)
                     for proc in procurement_obj.browse(cr, uid, ids):
-                        _logger.info("_procure_confirm_mto_running_to_mts: Product %s procurement %s - begin" % (proc.product_id.id, proc.id))
                         max_qty = stock_prod_loc.get(proc.location_id.id)
                         if max_qty is not None and proc.product_qty >= max_qty:
-                            _logger.info("_procure_confirm_mto_running_to_mts: Product %s procurement %s - skipping due to max qty %s >= %s" % (proc.product_id.id, proc.id, proc.product_qty, max_qty))
                             continue
                         cr.execute('SAVEPOINT mto_to_stock')
                         try:
                             procurement_obj.write(cr, uid, [proc.id], {'purchase_id': False,}, context=context)
-                            proc.refresh()
-                            if proc.state == 'exception':
-                                wf_service.trg_validate(uid, 'procurement.order', proc.id, 'button_restart', cr)
-                                proc.refresh()
                             wf_service.trg_validate(uid, 'procurement.order', proc.id, 'button_check', cr)
                             proc.refresh()
                             # Moved to exception since no MTS stock is available, rollback and try the next one
                             if proc.state == 'exception':
                                 cr.execute('ROLLBACK TO SAVEPOINT mto_to_stock')
                                 stock_prod_loc[proc.location_id.id] = proc.product_qty
-                                _logger.info("_procure_confirm_mto_running_to_mts: Product %s procurement %s - checked, state = %s, message = %s" % (proc.product_id.id, proc.id, proc.state, proc.message))
-                            else:
-                                _logger.info("_procure_confirm_mto_running_to_mts: Product %s procurement %s - successful" % (proc.product_id.id, proc.id))
                         except Exception, e: # A variety of errors may prevent this from re-assigning, picking exported to WMS, PO cut-off, etc
-                            _logger.info("_procure_confirm_mto_running_to_mts: Product %s procurement %s - rolling back - Exception %s" % (proc.product_id.id, proc.id, e))
                             cr.execute('ROLLBACK TO SAVEPOINT mto_to_stock')
                         cr.execute('RELEASE SAVEPOINT mto_to_stock')
                     if use_new_cursor:
@@ -343,18 +331,14 @@ class ProcurementOrder(osv.Model):
         context['_sched_max_proc_id'] = cr.fetchall()[0][0]
         exceptions = []
         for func in functions:
-            tries = 0
-            while tries < MAX_TRIES:
-                try:
-                    func(cr, uid, ids=ids, use_new_cursor=use_new_cursor, context=context)
-                    break
-                except TransactionRollbackError, e:
-                    exception = "Serialisation error %s while running scheduler, continue [%s]:\n\n%s" % (e, use_new_cursor, traceback.format_exc())
-                    _logger.error(exception)
-                    if not use_new_cursor:
-                        raise
-                    tries += 1
-                    continue
+            try:
+                func(cr, uid, ids=ids, use_new_cursor=use_new_cursor, context=context)
+            except OperationalError, e:
+                exception = "OperationalError while %s running scheduler, continue [%s]:\n\n%s" % (e, use_new_cursor, traceback.format_exc())
+                _logger.error(exception)
+                exceptions.append(exception)
+                if not use_new_cursor:
+                    raise e
 
         return True
 

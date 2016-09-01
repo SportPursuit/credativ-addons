@@ -20,7 +20,7 @@
 
 {
     'name' : 'Web Export Permissions',
-    'version' : '1.0',
+    'version' : '7.20160901.1',
     'depends' : ['base',
                  'web_action_permissions',
                 ],

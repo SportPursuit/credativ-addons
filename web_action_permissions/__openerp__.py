@@ -20,7 +20,7 @@
 
 {
     'name' : 'Web Action Permissions',
-    'version' : '1.0',
+    'version' : '7.20160901.1',
     'depends' : ['base'],
     'author': 'credativ Ltd',
     'website': 'http://www.credativ.co.uk',

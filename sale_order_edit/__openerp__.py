@@ -22,7 +22,7 @@
 
 {
     'name': 'Sale Order Edit',
-    'version': '1.0',
+    'version': '7.20160919.0',
     'category': 'Sales & Purchases',
     'description':
         """

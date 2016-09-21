@@ -22,7 +22,7 @@
 
 {
     'name': 'Base Order Edit',
-    'version': '1.0',
+    'version': '7.20160921.0',
     'category': 'Sales & Purchases',
     'description':
         """

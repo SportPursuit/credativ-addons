@@ -21,7 +21,7 @@
 
 {
         'name' : 'Magento Bundle Availability',
-        'version' : '1.0',
+        'version' : '7.20160921.0',
         'author' : 'credativ Ltd',
         'description' : '''
 Building on the bundle-import functionality provided by 'Magentoerpconnect Bundle Split', this module ensures that moves belonging to a particular bundle are always considered together when testing for availability.

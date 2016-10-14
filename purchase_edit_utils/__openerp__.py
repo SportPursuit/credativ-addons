@@ -20,7 +20,7 @@
 ##############################################################################
 {
     'name' : 'Purchase Edit Utilities',
-    'version' : '1.0.0',
+    'version' : '7.20161014.0',
     'author' : 'credativ',
     'website' : 'http://credativ.co.uk',
     'depends' : [

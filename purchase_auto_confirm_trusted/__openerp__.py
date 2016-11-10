@@ -22,7 +22,7 @@
 
 {
     'name': 'Auto-confirm Trusted Purchase Orders',
-    'version': '1.0',
+    'version': '7.20161110.0',
     'category': 'Sales & Purchases',
     'description': """
 Adds a scheduled task which will confirm any Purchase Orders

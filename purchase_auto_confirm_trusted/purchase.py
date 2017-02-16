@@ -24,6 +24,7 @@ import sys
 import traceback
 import logging
 from datetime import datetime
+from psycopg2.extensions import TransactionRollbackError
 
 from openerp import pooler, netsvc
 from openerp.osv import fields, orm
@@ -34,13 +35,16 @@ from contextlib import closing
 from openerp.addons.connector.queue.job import job
 from openerp.addons.connector.exception import JobError
 from openerp.addons.connector.session import ConnectorSession
+from openerp.addons.connector.exception import RetryableJobError
 
 _logger = logging.getLogger(__name__)
+
 
 @job
 def trusted_auto_confirm_job(session, record_id, context=None):
     purchase_obj = session.pool.get('purchase.order')
     return purchase_obj.trusted_auto_confirm(session.cr, session.uid, record_id, context=context)
+
 
 class purchase_order(orm.Model):
     _inherit = 'purchase.order'
@@ -51,48 +55,52 @@ class purchase_order(orm.Model):
     }
 
     def trusted_auto_confirm(self, cr, uid, ids, context=None):
-        ids = hasattr(ids, '__iter__') and ids or [ids]
+
+        if hasattr(ids, '__iter__'):
+            assert len(ids) == 1, "This method only works with one purchase_id at a time"
+            purchase_id = ids[0]
+        else:
+            purchase_id = ids
+
         conf_obj = self.pool.get('ir.config_parameter')
         user_obj = self.pool.get('res.users')
         mail_obj = self.pool.get('mail.mail')
         mail_from = user_obj.read(cr, uid, uid, ['email'], context=context).get('email')
         mail_to = conf_obj.get_param(cr, uid, 'purchase.trusted_confirmation_notify', context=context)
         wf_service = netsvc.LocalService("workflow")
-        errors = []
+
         with closing(pooler.get_db(cr.dbname).cursor()) as _cr:
             old_name, new_name = 'Unknown', 'Unknown'
-            for purchase_id in ids:
-                try:
-                    purchase = self.browse(_cr, uid, purchase_id, context=context)
-                    old_name = purchase.name
-                    if purchase.state != 'draft':
-                        continue
-                    wf_service.trg_validate(uid, 'purchase.order', purchase_id, 'purchase_confirm', _cr)
-                    purchase.refresh()
-                    new_name = purchase.name
-                    if mail_to:
-                        mail_values = {
-                            'email_to': mail_to,
-                            'subject': 'Trusted RFQ %s/PO %s Confirmed' % (old_name, new_name),
-                            'body_html': 'Trusted RFQ %s/PO %s has been auto-confirmed.' % (old_name, new_name),
-                            'state': 'outgoing',
-                            'type': 'email',
-                        }
-                        if mail_from:
-                            mail_values.update({'email_from': mail_from})
-                        mail_id = mail_obj.create(_cr, uid, mail_values, context=context)
-                        mail_obj.send(_cr, uid, [mail_id], context=context)
-                except Exception, e:
-                    _cr.rollback()
-                    formatted_info = ''.join(traceback.format_exception(*(sys.exc_info())))
-                    err_msg = 'Unable to auto-confirm trusted RFQ %s/PO %s.\n%s' % (old_name, new_name, formatted_info)
-                    _logger.error(err_msg)
-                    errors.append(err_msg)
-                    continue
-                _cr.commit()
-        if errors:
-            error_str = '\n' + '\n'.join(errors)
-            raise JobError(_('Some RFQs could not be confirmed:') + error_str)
+            try:
+                purchase = self.browse(_cr, uid, purchase_id, context=context)
+                old_name = purchase.name
+                if purchase.state != 'draft':
+                    return
+                wf_service.trg_validate(uid, 'purchase.order', purchase_id, 'purchase_confirm', _cr)
+                purchase.refresh()
+                new_name = purchase.name
+                if mail_to:
+                    mail_values = {
+                        'email_to': mail_to,
+                        'subject': 'Trusted RFQ %s/PO %s Confirmed' % (old_name, new_name),
+                        'body_html': 'Trusted RFQ %s/PO %s has been auto-confirmed.' % (old_name, new_name),
+                        'state': 'outgoing',
+                        'type': 'email',
+                    }
+                    if mail_from:
+                        mail_values.update({'email_from': mail_from})
+                    mail_id = mail_obj.create(_cr, uid, mail_values, context=context)
+                    mail_obj.send(_cr, uid, [mail_id], context=context)
+
+            except TransactionRollbackError:
+                raise RetryableJobError("Transaction was rolled back. Retrying...")
+
+            except Exception:
+                _cr.rollback()
+                formatted_info = ''.join(traceback.format_exception(*(sys.exc_info())))
+                err_msg = 'Unable to auto-confirm trusted RFQ %s/PO %s.\n%s' % (old_name, new_name, formatted_info)
+                _logger.error(err_msg)
+                raise JobError(_('Some RFQs could not be confirmed:') + err_msg)
 
     def run_trusted_auto_confirm(self, cr, uid, context=None):
         confirm_date = datetime.now().strftime(DEFAULT_SERVER_DATE_FORMAT)

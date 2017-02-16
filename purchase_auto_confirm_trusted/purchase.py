@@ -102,6 +102,8 @@ class purchase_order(orm.Model):
                 _logger.error(err_msg)
                 raise JobError(_('Some RFQs could not be confirmed:') + err_msg)
 
+            _cr.commit()
+
     def run_trusted_auto_confirm(self, cr, uid, context=None):
         confirm_date = datetime.now().strftime(DEFAULT_SERVER_DATE_FORMAT)
         purchase_ids = self.search(cr, uid, [('state','=','draft'),('partner_id.trusted_supplier','=',True),('auto_confirm_date', '<=', confirm_date)], context=context)

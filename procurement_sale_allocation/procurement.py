@@ -27,24 +27,73 @@ class ProcurementOrder(osv.Model):
     _inherit = 'procurement.order'
 
     def _verify_wkf_change(self, cr, uid, proc_id, acts, po_id, context=None):
-        query = """SELECT wa.name, wi_sub.res_id
+        if context is None:
+            context = {}
+        proc_ids = context.get('SIGNAL_PROCURE_IDS',[])
+        if not proc_ids:
+            proc_ids.append(proc_id)
+        query = """SELECT wa.name, wi_sub.res_id, wi.res_id
             FROM wkf_instance wi
             INNER JOIN wkf_workitem ww ON ww.inst_id = wi.id
             INNER JOIN wkf_activity wa ON wa.id = ww.act_id
             LEFT OUTER JOIN wkf_instance wi_sub ON wi_sub.id = ww.subflow_id
                 AND wi_sub.res_type = 'purchase.order'
-            WHERE wi.res_id = %s
+            WHERE wi.res_id in %s
             AND wi.res_type = 'procurement.order'"""
-        cr.execute(query, (proc_id,))
+        cr.execute(query, (tuple(proc_ids),))
         res = cr.fetchall()
-        if not res:
-            raise osv.except_osv(_('Error !'), _('Unable to find active workflow workitem for procurement id %s') % (proc_id,))
-        if len(res) > 1:
-            raise osv.except_osv(_('Error !'), _('Found multiple active workflow workitems for procurement id %s') % (proc_id,))
-        if res[0][0] not in acts:
-            raise osv.except_osv(_('Error !'), _('Unexpected procurement workflow activity %s, expected %s for procurement id %s') % (res[0][0], acts, proc_id,))
-        if res[0][1] and res[0][1] != po_id:
-            raise osv.except_osv(_('Error !'), _('Procurement id %s workflow linked to subflow for purchase id %s, should be %s') % (proc_id, res[0][1] or 'None', po_id or 'None'))
+        if not context.get('SIGNAL_PROCURE_IDS',False):
+            if not res:
+                raise osv.except_osv(_('Error !'), _('Unable to find active workflow workitem for procurement id %s') % (proc_id,))
+            if len(res) > 1:
+                raise osv.except_osv(_('Error !'), _('Found multiple active workflow workitems for procurement id %s') % (proc_id,))
+            if res[0][0] not in acts:
+                raise osv.except_osv(_('Error !'), _('Unexpected procurement workflow activity %s, expected %s for procurement id %s') % (res[0][0], acts, proc_id,))    
+            if res[0][1] and res[0][1] != po_id:
+                raise osv.except_osv(_('Error !'), _('Procurement id %s workflow linked to subflow for purchase id %s, should be %s') % (proc_id, res[0][1] or 'None', po_id or 'None'))        
+        else:
+            err_no_active = False
+            err_multi_active = False
+            err_subflow = False
+            err = False
+            temp_proc_ids = list(set([x[2] for x in res]))
+            diff_proc_ids = [x for x in proc_ids if x not in temp_proc_ids]  
+            
+            for rec in diff_proc_ids:
+                err_no_active = err_no_active or ''
+                err_no_active+='Unable to find active workflow workitem for procurement id %s' % (rec,)
+                err_no_active+='\n'
+            if err_no_active:
+                raise osv.except_osv(_('Error !'), _(err_no_active)) 
+            
+            temp_proc_ids = [x[2] for x in res]
+            multi_active_proc_ids = set([x for x in temp_proc_ids if temp_proc_ids.count(x) > 1])  
+            for rec in multi_active_proc_ids:
+                err_multi_active = err_multi_active or ''
+                err_multi_active+='Found multiple active workflow workitems for procurement id %s' % (rec,)
+                err_multi_active+='\n'
+            if err_multi_active:
+                raise osv.except_osv(_('Error !'), _(err_multi_active))  
+            
+            for rec in res: 
+                procure_obj = self.pool.get('procurement.order').browse(cr, uid, rec[2], context=context)
+                if rec[0] not in acts:
+                    err = err or ''
+                    err+='Unexpected procurement workflow activity %s, expected %s for procurement id %s Order Number %s and Product SKU %s ' % (rec[0], acts, rec[2], procure_obj.origin and procure_obj.origin or '', procure_obj.product_id and procure_obj.product_id.default_code or '',)
+                    err+='\n'
+                subflows = context.get('SIGNAL_PROCURE_SUBFLOW_IDS',False)  
+                tmp_po = [x[1] for x in subflows if x[0] == rec[2]]
+                po_id = tmp_po and tmp_po[0] or False
+                if rec[1] and po_id and rec[1]!=po_id:
+                    err_subflow = err_subflow or ''
+                    err_subflow += 'Procurement id %s workflow linked to subflow for purchase id %s, should be %s' % (rec[2], rec[1] or 'None', po_id or 'None')
+                    err_subflow +='\n'            
+            if err:
+                raise osv.except_osv(_('Error !'), _(err))
+            if err_subflow:
+                raise osv.except_osv(_('Error !'), _(err_subflow))
+            
+            
         return True
 
     def write(self, cr, uid, ids, values, context=None):
@@ -132,9 +181,13 @@ class ProcurementOrder(osv.Model):
                     # It is not possible to break out of a subflow unless we get a signal from it, we force it to be complete here
                     cr.execute('select id, wkf_id from wkf_instance where res_id=%s and res_type=%s', (proc_data[0], 'procurement.order'))
                     for inst_id, wkf_id in cr.fetchall():
-                        cr.execute('update wkf_workitem set state=%s where inst_id=%s', ('complete', inst_id))
-
+                        cr.execute('update wkf_workitem set state=%s where inst_id=%s', ('complete', inst_id))                    
+                    
+                    context['SIGNAL_PROCURE_IDS'] = proc_ids
+                    context['SIGNAL_PROCURE_SUBFLOW_IDS'] = signals.get('signal_mto_mto_confirm')
                     self._verify_wkf_change(cr, uid, proc_data[0], expected_acts[0], proc_data[1], context=context)
+                    context.pop('SIGNAL_PROCURE_IDS', None)
+                    context.pop('SIGNAL_PROCURE_SUBFLOW_IDS', None)
                     wkf_service.trg_validate(uid, 'procurement.order', proc_data[0], signal, cr)
                     self._verify_wkf_change(cr, uid, proc_data[0], expected_acts[1], proc_data[2] or False, context=context)
                     message = _("Procurement deallocated from PO (%s) to MTO") % (purchase_name_dict[proc_data[1]],)

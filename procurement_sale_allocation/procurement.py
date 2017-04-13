@@ -146,7 +146,7 @@ class ProcurementOrder(osv.Model):
                     elif purchase_orig and purchase_new or (proc['procure_method']=='make_to_order' and purchase_new):
                         signal = 'signal_mto_mto'
                     if signal:
-                        signals.setdefault(signal, []).append((proc['id'], purchase_orig[0], purchase_new))
+                        signals.setdefault(signal, []).append((proc['id'], purchase_orig and purchase_orig[0], purchase_new))
                         if purchase_orig:
                             purchase_orig_ids.add(purchase_orig[0])
                         if purchase_new:
@@ -252,6 +252,7 @@ class ProcurementOrder(osv.Model):
                     self.message_post(cr, uid, [proc_data[0]], body=message, context=context)
 
             if po_unlink_ids:
+                purchase_obj.action_cancel(cr, uid, po_unlink_ids, context=context)
                 purchase_obj.unlink(cr, uid, po_unlink_ids, context=context)
 
         return res
@@ -266,13 +267,11 @@ class ProcurementOrder(osv.Model):
             pol_ids = purchase_line_obj.search(cr, uid, [('move_dest_id', '=', False), ('state', '!=', 'cancel'), ('order_id', '=', proc.purchase_id.id), ('product_id', '=', proc.product_id.id)], order="date_planned desc, product_qty asc", context=context)
             pol_assign_id = False
             for line in purchase_line_obj.browse(cr, uid, pol_ids, context=context):
-                if any([move.state in ('done', 'cancel') for move in line.move_ids]):
-                    # Only allow allocation to lines with no moves (draft) or available moves (in progress)
-                    continue
                 purchase_uom_qty = uom_obj._compute_qty(cr, uid, proc.product_uom.id, proc.product_qty, line.product_uom.id)
                 if line.product_qty >= purchase_uom_qty:
-                    pol_assign_id = line.id
-                    break
+                    if not line.move_ids or (sum([x.product_qty for x in line.move_ids if x.state == 'assigned'])) >= purchase_uom_qty:
+                        pol_assign_id = line.id
+                        break
             if not pol_assign_id:
                 raise osv.except_osv(_('Error!'),_("The purchase order %s does not have enough space to allocate procurement %s.") % (proc.purchase_id.name, proc.name))
             # If qty < pol.qty, duplicate POL and move and divide the qty

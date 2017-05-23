@@ -23,7 +23,7 @@ from openerp.osv import osv, fields
 from openerp.tools.translate import _
 from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT
 
-from openerp.addons.connector_bots_stock_integration.supplier_stock import SUPPLIER_STOCK_FEED
+
 
 class StockMove(osv.osv):
     _inherit = "stock.move"
@@ -111,7 +111,6 @@ class StockInventory(osv.osv):
         location_id = move_vals.get('location_id', False)
         destination_id = move_vals.get('location_dest_id', False)
 
-
         # If we are performing a supplier inventory we need to take/put stock to main supplier location rather than inventory loss
         if location_obj.search(cr, uid, [('id', '=', location_id), ('usage', '=', 'supplier')]) and \
                 warehouse_obj.search(cr, uid, [('lot_supplier_virtual_id', '=', location_id)]):
@@ -123,8 +122,8 @@ class StockInventory(osv.osv):
             source_id = stock_obj._default_location_source(cr, uid, {'picking_type': 'in'})
             if source_id:
                 move_vals['location_id'] = source_id
-        elif destination_id and location_obj.search(
-                cr, uid, [('id', '=', destination_id), ('usage', '=', 'supplier'), ('name', '=', SUPPLIER_STOCK_FEED)]
+        elif destination_id in location_obj.search(
+                cr, uid, [('usage', '=', 'supplier'), ('name', '=', 'Supplier Stock Feed')]
         ):
             source_id = stock_obj._default_location_source(cr, uid, {'picking_type': 'in'})
             if source_id:

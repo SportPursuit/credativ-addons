@@ -23,6 +23,8 @@ from openerp.osv import osv, fields
 from openerp.tools.translate import _
 from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT
 
+from openerp.addons.connector_bots_stock_integration.supplier_stock import SUPPLIER_STOCK_FEED
+
 class StockMove(osv.osv):
     _inherit = "stock.move"
 
@@ -106,19 +108,29 @@ class StockInventory(osv.osv):
         location_obj = self.pool.get('stock.location')
         warehouse_obj = self.pool.get('stock.warehouse')
 
+        location_id = move_vals.get('location_id', False)
+        destination_id = move_vals.get('location_dest_id', False)
+
+
         # If we are performing a supplier inventory we need to take/put stock to main supplier location rather than inventory loss
-        if location_obj.search(cr, uid, [('id', '=', move_vals.get('location_id', False)), ('usage', '=', 'supplier')]) and \
-                warehouse_obj.search(cr, uid, [('lot_supplier_virtual_id', '=', move_vals.get('location_id', False))]):
+        if location_obj.search(cr, uid, [('id', '=', location_id), ('usage', '=', 'supplier')]) and \
+                warehouse_obj.search(cr, uid, [('lot_supplier_virtual_id', '=', location_id)]):
             source_id = stock_obj._default_location_source(cr, uid, {'picking_type': 'in'})
             if source_id:
                 move_vals['location_dest_id'] = source_id
-        elif location_obj.search(cr, uid, [('id', '=', move_vals.get('location_dest_id', False)), ('usage', '=', 'supplier')]) and \
-                warehouse_obj.search(cr, uid, [('lot_supplier_virtual_id', '=', move_vals.get('location_dest_id', False))]):
+        elif location_obj.search(cr, uid, [('id', '=', destination_id), ('usage', '=', 'supplier')]) and \
+                warehouse_obj.search(cr, uid, [('lot_supplier_virtual_id', '=', destination_id)]):
+            source_id = stock_obj._default_location_source(cr, uid, {'picking_type': 'in'})
+            if source_id:
+                move_vals['location_id'] = source_id
+        elif destination_id and location_obj.search(
+                cr, uid, [('id', '=', destination_id), ('usage', '=', 'supplier'), ('name', '=', SUPPLIER_STOCK_FEED)]
+        ):
             source_id = stock_obj._default_location_source(cr, uid, {'picking_type': 'in'})
             if source_id:
                 move_vals['location_id'] = source_id
 
-        if move_vals.get('location_id', False) == move_vals.get('location_dest_id', False):
+        if location_id == destination_id:
             raise osv.except_osv(_('Warning!'), _('It is not possible to use the default supplier location for supplier inventories'))
 
         return super(StockInventory, self)._inventory_line_hook(cr, uid, inventory_line, move_vals)

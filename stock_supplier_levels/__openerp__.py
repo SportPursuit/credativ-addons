@@ -38,6 +38,7 @@ stock level on confirmation.
      'product',
      'stock',
      'purchase',
+     'connector_bots_stock_integration'
  ],
  'data': [
      'stock_view.xml',

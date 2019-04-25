@@ -76,7 +76,7 @@ class ProductProduct(osv.osv):
             res[id]['supplier_virtual_available'] = stock.get(id, 0.0)
 
         if 'supplier_virtual_available_combined' in field_names:
-            va_stock_data = self.read(cr, uid, ids, ['virtual_available'])
+            va_stock_data = self.read(cr, uid, ids, ['virtual_available'], context=context)
             va_stock = {v['id']: v['virtual_available'] for v in va_stock_data}
             for id in ids:
                 res[id]['supplier_virtual_available_combined'] = va_stock.get(id, 0.0) + stock.get(id, 0.0)

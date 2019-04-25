@@ -18,9 +18,13 @@
 #
 ##############################################################################
 
+import logging
 from openerp.osv import osv, fields
 from openerp.tools.translate import _
 import openerp.addons.decimal_precision as dp
+
+logger = logging.getLogger(__name__)
+
 
 class ProductProduct(osv.osv):
     _inherit = "product.product"
@@ -81,6 +85,7 @@ class ProductProduct(osv.osv):
             for id in ids:
                 res[id]['supplier_virtual_available_combined'] = va_stock.get(id, 0.0) + stock.get(id, 0.0)
 
+        logger.info("supplier_virtual_available_combined: {res}".format(res=res))
         return res
 
     _columns = {

@@ -291,6 +291,12 @@ class SaleOrderLine(osv.osv):
     }
 
     def copy_data(self, cr, uid, id_, default=None, context=None):
+        default = default or {}
+        line = self.pool.get('sale.order.line').browse(cr, uid, id_, context)
+        # preserving state for canceled sale order line
+        if line.state == 'cancel':
+            default.update({'state': 'cancel'})
+
         res = super(SaleOrderLine, self).copy_data(cr, uid, id_, default, context=context)
         res.update({'order_line_edit_id' : id_})
         return res

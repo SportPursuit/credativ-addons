@@ -291,8 +291,13 @@ class SaleOrderLine(osv.osv):
     }
 
     def copy_data(self, cr, uid, id_, default=None, context=None):
+        original_line = self.pool.get('sale.order.line').browse(cr, uid, id_, context)
+        # removing cancel line in the edited order
+        if original_line.state == 'cancel':
+             return {}
+
         res = super(SaleOrderLine, self).copy_data(cr, uid, id_, default, context=context)
-        res.update({'order_line_edit_id' : id_})
+        res.update({'order_line_edit_id': id_})
         return res
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

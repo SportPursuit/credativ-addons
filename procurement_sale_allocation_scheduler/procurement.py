@@ -353,6 +353,9 @@ class ProcurementOrder(osv.Model):
 
         for proc in self.browse(cr, uid, ids, context=context):
             if proc.procure_method == 'make_to_order' and not proc.purchase_id:
+                if context is None:
+                    context = {}
+                context.update({'psa_skip_moves': True})
                 po_ids = []
                 pol_ids = purchase_line_obj.search(cr, uid, [
                             ('state', '=', 'confirmed'),

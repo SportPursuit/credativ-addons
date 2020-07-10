@@ -365,9 +365,10 @@ class ProcurementOrder(osv.Model):
                             ('order_id.procurements_auto_allocate', '=', True),
                         ], order='date_planned asc', context=context)
                 if pol_ids:
-                    for pol in purchase_line_obj.read(cr, uid, pol_ids, ['order_id'], context=context):
-                        if pol['order_id'][0] not in po_ids:
-                            po_ids.append(pol['order_id'][0])
+                    for pol in purchase_line_obj.browse(cr, uid, pol_ids, context=context):
+                        if not any([move.state in ('done', 'cancel') for move in pol.move_ids]):
+                            if pol.order_id.id not in po_ids:
+                                po_ids.append(pol.order_id.id)
                     # Re-search for the POs so they are sorted by date_planned
                     po_ids = purchase_obj.search(cr, uid, [('id', 'in', po_ids)], order='minimum_planned_date asc', context=context)
                 for po_id in po_ids:

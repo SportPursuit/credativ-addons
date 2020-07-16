@@ -69,10 +69,13 @@ class StockPicking(osv.Model):
                 product_uoms[move.id] = product_uom
                 partial_qty[move.id] = uom_obj._compute_qty(cr, uid, product_uoms[move.id], product_qty, move.product_uom.id)
                 if move.product_qty == partial_qty[move.id]:
+                    logger.info("Move satisfied: {0}".format(move.id))
                     complete.append(move)
                 elif move.product_qty > partial_qty[move.id]:
+                    logger.info("Move has too few: {0}".format(move.id))
                     too_few.append(move)
                 else:
+                    logger.info("Move has too many: {0}".format(move.id))
                     too_many.append(move)
 
                 # Average price computation

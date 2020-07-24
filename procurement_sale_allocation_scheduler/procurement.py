@@ -58,7 +58,7 @@ class ProcurementOrder(osv.Model):
             while True:
                 report_ids = []
                 ids = procurement_obj.search(cr, uid, [max_sched_condition, ('note', 'not like', '%_mto_to_mts_done_%'), '|',
-                                                           '&', ('state', '=', 'confirmed'), ('procure_method', '=', 'make_to_order'),
+                                                           '&', ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_order'),
                                                            '&', '&', ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock'), ('note', 'like', '%_mto_to_mts_fail_%')], limit=50, order='priority, date_planned', context=context)
                 _logger.info('Processing procurements %s' % ids)
                 for proc in procurement_obj.browse(cr, uid, ids):

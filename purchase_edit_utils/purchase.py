@@ -69,6 +69,8 @@ class PurchaseOrderLine(osv.Model):
             self.write(cr, uid, [new_line_id], {'state': line.state}, context=context)
             if line.state not in ('draft', 'cancel'):
                 line = self.browse(cr, uid, line.id, context=context)
+                _logger.info("PURCHASE ORDER PICKING:")
+                _logger.info(line.order_id, line, line.order_id.picking_ids[0].id)
                 if orig_moves:
                     move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, line.order_id, line, line.order_id.picking_ids[0].id, context=context))
                     move_obj.write(cr, uid, [move_id,], {'state': move_state}, context=context)

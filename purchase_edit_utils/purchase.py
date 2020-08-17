@@ -71,6 +71,8 @@ class PurchaseOrderLine(osv.Model):
             if line.state not in ('draft', 'cancel'):
                 line = self.browse(cr, uid, line.id, context=context)
                 if orig_moves:
+                    # Retrieve the 'assigned', or 'Ready to Receive' incoming shipment of the PO in question.
+                    # There should be exactly one of these for valid POs, so raise exception if there are more or less
                     shipment_ids = picking_obj.search(cr, uid, [('type', '=', 'in'), ('purchase_id', '=', line.order_id.id), ('state', '=', 'assigned')])
                     if len(shipment_ids) != 1:
                         raise Exception("There were {0} incoming shipments returned for PO {1}, instead of 1".format(len(shipment_ids), line.order_id.name))

@@ -55,6 +55,7 @@ class PurchaseOrderLine(osv.Model):
     def do_split(self, cr, uid, id, qty, context=None):
         purchase_obj = self.pool.get('purchase.order')
         move_obj = self.pool.get('stock.move')
+        picking_obj = self.pool.get('stock.picking')
         line = self.browse(cr, uid, id, context=context)
         new_line_id = False
         if line.product_qty > qty:
@@ -70,10 +71,18 @@ class PurchaseOrderLine(osv.Model):
             if line.state not in ('draft', 'cancel'):
                 line = self.browse(cr, uid, line.id, context=context)
                 if orig_moves:
-                    move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, line.order_id, line, line.order_id.picking_ids[0].id, context=context))
+                    # Retrieve the 'assigned', or 'Ready to Receive' incoming shipment of the PO in question.
+                    # There should be exactly one of these for valid POs, so raise exception if there are more or less
+                    shipment_ids = picking_obj.search(cr, uid, [('type', '=', 'in'), ('purchase_id', '=', line.order_id.id), ('state', '=', 'assigned')])
+                    if len(shipment_ids) != 1:
+                        _logger.warning("There were {0} incoming shipments returned for PO {1}, instead of 1".format(len(shipment_ids), line.order_id.name))
+                    move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, line.order_id, line, shipment_ids[0], context=context))
                     move_obj.write(cr, uid, [move_id,], {'state': move_state}, context=context)
                     new_line = self.browse(cr, uid, new_line_id, context=context)
-                    move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, new_line.order_id, new_line, new_line.order_id.picking_ids[0].id, context=context))
+                    new_shipment_ids = picking_obj.search(cr, uid, [('type', '=', 'in'), ('purchase_id', '=', new_line.order_id.id), ('state', '=', 'assigned')])
+                    if len(new_shipment_ids) != 1:
+                        _logger.warning("There were {0} incoming shipments returned for PO {1}, instead of 1".format(len(new_shipment_ids), line.order_id.name))
+                    move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, new_line.order_id, new_line, new_shipment_ids[0], context=context))
                     move_obj.write(cr, uid, [move_id,], {'state': move_state}, context=context)
             if orig_moves:
                 move_obj.write(cr, uid, orig_moves, {'move_dest_id': False, 'purchase_line_id': False, 'picking_id': False}, context=context)

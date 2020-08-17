@@ -73,7 +73,7 @@ class PurchaseOrderLine(osv.Model):
                 if orig_moves:
                     shipment_ids = picking_obj.search(cr, uid, [('type', '=', 'in'), ('purchase_id', '=', line.order_id.id), ('state', '=', 'assigned')])
                     if len(shipment_ids) != 1:
-                        raise Exception("There were %s incoming shipments returned for PO %s, instead of 1", len(shipment_ids), line.order_id.name)
+                        raise Exception("There were {0} incoming shipments returned for PO {1}, instead of 1".format(len(shipment_ids), line.order_id.name))
                     move_id = move_obj.create(cr, uid, purchase_obj._prepare_order_line_move(cr, uid, line.order_id, line, shipment_ids[0], context=context))
                     move_obj.write(cr, uid, [move_id,], {'state': move_state}, context=context)
                     new_line = self.browse(cr, uid, new_line_id, context=context)

@@ -24,6 +24,7 @@ from dateutil.relativedelta import relativedelta
 from psycopg2 import OperationalError
 from psycopg2.extensions import TransactionRollbackError
 import traceback
+import requests
 
 from openerp import netsvc
 from openerp import pooler
@@ -389,5 +390,16 @@ class ProcurementOrder(osv.Model):
                 res.append(purchase_ids)
 
         return len(res) and res[0] or 0
+
+    def check_stuck_procurements(self, _cr, _uid, minutes, heartbeat_endpoint):
+        now = datetime.now()
+        threshold_time = now - relativedelta(minutes=minutes)
+        stuck_procurements = self.search(_cr, _uid, [('write_date', '<', threshold_time), ('state', '=', 'confirmed')])
+        if not stuck_procurements:
+            response = requests.get(heartbeat_endpoint)
+            _logger.info("sending heartbeat confirming no procurements are stuck. Response %s", response.status_code)
+        else:
+            _logger.info("Procurement(s) %s is over %s minutes stale. Procurement scheduler may be stuck", stuck_procurements, minutes)
+        pass
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

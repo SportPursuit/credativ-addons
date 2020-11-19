@@ -59,10 +59,6 @@ class ProcurementOrder(osv.Model):
             procs = self.read(cr, uid, ids, ['purchase_id', 'name', 'procure_method', 'move_id', 'product_id', 'state'], context=context) # This must be a read since we need the 'before' data
         res = super(ProcurementOrder, self).write(cr, uid, ids, values, context=context)
 
-        if context.get('transfer_assign'):
-            transfer_id = context.get('transfer_id')
-            values['purchase_id'] = transfer_id
-
         if ids and 'purchase_id' in values:
             signals = {}
             purchase_orig_ids, purchase_new_ids = set(), set()

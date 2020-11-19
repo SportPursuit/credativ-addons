@@ -60,6 +60,9 @@ class ProcurementOrder(osv.Model):
         res = super(ProcurementOrder, self).write(cr, uid, ids, values, context=context)
 
         if ids and 'purchase_id' in values:
+            po_to_assign = purchase_obj.browse(cr, uid, values.get('purchase_id'))
+            if po_to_assign.internal_transfer:
+                return res
             signals = {}
             purchase_orig_ids, purchase_new_ids = set(), set()
 

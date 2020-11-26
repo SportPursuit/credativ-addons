@@ -104,8 +104,8 @@ class PurchaseOrderLine(osv.Model):
             if line.move_dest_id:
                 procurement_ids_to_remove.extend(procurement.id for procurement in line.move_dest_id.procurements)
         if procurement_ids_to_remove:
-            if context.get('transfer_assign'):
-                transfer_id = context.get('transfer_id')
+            if context.get('transfer_assign_id'):
+                transfer_id = context.get('transfer_assign_id')
                 procurement_obj.write(cr, uid, procurement_ids_to_remove, {'purchase_id': transfer_id}, context=ctx)
             else:
                 procurement_obj.write(cr, uid, procurement_ids_to_remove, {'purchase_id': False}, context=ctx)

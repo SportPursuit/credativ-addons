@@ -60,7 +60,7 @@ class ProcurementOrder(osv.Model):
                 report_ids = []
                 ids = procurement_obj.search(cr, uid, [max_sched_condition, ('note', 'not like', '%_mto_to_mts_done_%'), '|',
                                                            '&', ('state', '=', 'confirmed'), ('procure_method', '=', 'make_to_order'),
-                                                           '&', '&', ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock'), ('note', 'like', '%_mto_to_mts_fail_%')], limit=50, order='priority, date_planned', context=context)
+                                                           '&', '&', ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock'), ('note', 'like', '%_mto_to_mts_fail_%')], limit=500, order='priority, date_planned', context=context)
                 _logger.info('Processing procurements %s' % ids)
                 for proc in procurement_obj.browse(cr, uid, ids):
                     if maxdate >= proc.date_planned:
@@ -115,7 +115,7 @@ class ProcurementOrder(osv.Model):
             exclude_prod_loc = [] # List of (product_id, location_id) for indicating no stock is available
             while True:
                 report_ids = []
-                ids = procurement_obj.search(cr, uid, [max_sched_condition, ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock')], offset=offset, limit=50, order='priority, date_planned', context=context)
+                ids = procurement_obj.search(cr, uid, [max_sched_condition, ('state', 'in', ('confirmed', 'exception')), ('procure_method', '=', 'make_to_stock')], offset=offset, limit=500, order='priority, date_planned', context=context)
                 for proc in procurement_obj.browse(cr, uid, ids):
                     if maxdate >= proc.date_planned:
                         # We already know there are no POs available, skip

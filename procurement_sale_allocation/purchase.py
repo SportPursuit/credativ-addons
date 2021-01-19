@@ -22,6 +22,11 @@
 from osv import osv, fields
 from openerp.tools.translate import _
 import netsvc
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 class PurchaseOrder(osv.Model):
     _inherit = 'purchase.order'
@@ -101,8 +106,14 @@ class PurchaseOrderLine(osv.Model):
         procurement_obj = self.pool.get('procurement.order')
         procurement_ids_to_remove = []
         for line in self.browse(cr, uid, ids, context=context):
-            if line.move_dest_id:
-                procurement_ids_to_remove.extend(procurement.id for procurement in line.move_dest_id.procurements)
+            logger.info("LINE INFO")
+            linedict = line.__dict__
+            logger.info(linedict)
+            try:
+                if line.move_dest_id:
+                    procurement_ids_to_remove.extend(procurement.id for procurement in line.move_dest_id.procurements)
+            except Exception as e:
+                raise Exception(linedict)
         if procurement_ids_to_remove:
             if context.get('transfer_assign_id'):
                 transfer_id = context.get('transfer_assign_id')

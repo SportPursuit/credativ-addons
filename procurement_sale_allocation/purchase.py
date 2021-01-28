@@ -105,6 +105,8 @@ class PurchaseOrderLine(osv.Model):
         ctx['psa_proc_removed'] = True
         procurement_obj = self.pool.get('procurement.order')
         procurement_ids_to_remove = []
+        logger.info("BROWSE OBJ")
+        logger.info(self.browse(cr, uid, ids, context=context).__dict__)
         for line in self.browse(cr, uid, ids, context=context):
             logger.info("LINE INFO")
             linedict = line.__dict__
